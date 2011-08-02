@@ -1,0 +1,42 @@
+==================================================
+| simple_api.php
+==================================================
+Who: Jason Snively pixelat3d@siliconfreaks.com | http://www.omgninja.com
+Created: ???
+Updated: 08.02.2011
+License: Use however you want to, no license or anything. Hopefully 
+it will save someone a bit of time. 
+
+What: 
+An Object Oriented interface to php's cURLing functions.
+
+Why: Sanity. Well, that and I kept running into exhaustive classes for
+twitter and last.fm when i just wanted something lightweight to throw 
+up on my blog. I wrote the interface so I could just easily extend it
+and get the very limited information I cared about. I've included both
+of the extensions in the repository.
+
+======================================================
+| Usage: 
+=======================================================
+Roll your own inline: 
+$api = new simple_api( ); 
+$response = $api->request_data( $url [, $format='json'] 
+	[, $method='post'] [, $data='MyPostData'][, $decode = true ] 
+);
+
+Roll your own Class: 
+class simple_toots extends simple_api {
+	// Now you have all my methods and stuffs.
+}
+
+
+Your twitter public timeline: 
+$t = new simple_twitter( $username );
+$tweets = $t->user_timeline( ); 
+print_r( $tweets );
+
+Your Most recent Last.fm Tracks: 
+$lfm = new simple_lastfm( $username );
+$track_list = $lfm->recent_tracks( ); 
+print_r( $track_list );
