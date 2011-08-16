@@ -2,17 +2,20 @@
 /* 
 	simple_api.php 
 	Requires php cURL (http://www.php.net/manual/en/book.curl.php)
+	php version: 5.1.2
 	Created: 02.14.10
-	Last Updated: 08.02.2011
+	Last Updated: 08.15.2011
 */
 
 class simple_api { 
-	public $format = 'json'; 
-	public $method = 'get';
-	public $timeout = 3000;
+	protected $method = 'get';
+	protected $format = 'json';
+	protected $timeout = 3000;
+	protected $decode = true;
 
 	protected $username;
 	protected $password;
+
 	protected $useragent;
 	protected $post_string;
 	protected $last_url;
@@ -23,7 +26,7 @@ class simple_api {
 	protected $data;
 	protected $error;
 
-	private	$version = 0.72;
+	private	$version = 0.73;
 
 	public function __construct( $username = '', $password = '' ) {
 		$this->username = $username;
@@ -32,17 +35,12 @@ class simple_api {
 		$this->useragent = 'Simple API/'.$this->version;
 	}
 
-	protected function extract_postvars( $url ) {
-		// This isn't used unless you enable the 
-		// get -> post checking below.
-		$url = substr( $url, strpos( $url, '?' ) + 1 );
-		$postvars = explode( '&', $url );
-
-		return( $postvars );
-	}
-
 	public function add_headers( $headers ) { 
 		$this->headers = $headers; 
+	}
+
+	public function add_header( $header ) { 
+		$this->headers[] = $header; 
 	}
 
 	private function clear_headers( ) { 
@@ -50,20 +48,43 @@ class simple_api {
 	}
 
 	final public function request_data( $url, $format = 'json', $method = 'get', $data = '', $decode = true ) {
-		$ch	= curl_init( $url )or die( 'Could not Init CURL!' );
 		$this->last_url = $this->current_url; 
 		$this->current_url = $url;
 		$this->data = $data;
 
 		$method = strtolower( $method ); 
-		if( $method == strtolower( 'post' ) || $method == strtolower( 'get' ) ) {
+		if( $method == 'post' || $method == 'get' ) {
 			$this->method = $method;
+		} else { 
+			$method = $this->method;
 		}
 
-		if( $format == strtolower( 'json' ) || $format == strtolower( 'xml' ) ) {
+		$format = strtolower( $format );
+		if( $format ==  'json' || $format == 'xml' ) {
 			$this->format = $format;
+		} else { 
+			$format = $this->format;
 		}
-		
+
+		if( $method == 'get' ) { 
+			//Check $data for GET variables in case people decide to just 
+			//use $url as an entrypoint.
+			if( !empty( $data ) ) { 
+				$url = rtrim( $url, '?' );
+
+				if( is_array( $data ) ) {
+					$querystring = http_build_query( $data, '', '&' );
+				} else {
+					//going to treat it like a string.
+					$querystring = $data; 
+				}
+
+				$url .= '?'.$querystring;
+			}
+		}
+
+		$ch = curl_init( $url )or die( 'Could not Init CURL!' );
+
 		// If requred auth, then auth. 	
 		if ( !empty( $this->username ) && !empty( $this->password ) ) {
 			curl_setopt ( $ch, CURLOPT_USERPWD, $this->username.':'.$this->password);
@@ -75,7 +96,7 @@ class simple_api {
 			curl_setopt( $ch, CURLOPT_HTTPHEADER, $this->headers );
 		}
 
-		/* Not going to store cookies on the server.
+		/* If you want to save cookies, uncomment and configure this
 		$ckfile = tempnam ("/tmp/", "CURLCOOKIE");
 		curl_setopt( $ch, CURLOPT_COOKIEJAR, $ckfile ); */
 
@@ -89,40 +110,16 @@ class simple_api {
 
 		if( $this->method == 'post' ) {
 			if( is_array( $data ) ) {
-				$post_str = '';
-				foreach( $data as $key => $val ) {
-					$key = urlencode( $key );
-					$val = urlencode( $val );
-					$post_str .= $key.'='.$val.'&';
-				}
+				$post_str = http_build_query( $data, '', '&' );
 
 				$this->post_string = $post_str;
-				$this->post_string = rtrim( $this->post_string, '&' );
 				$this->last_query = $url;
 				
 				curl_setopt( $ch, CURLOPT_URL, $url );
 				curl_setopt( $ch, CURLOPT_POST, count( $data ) );
 				curl_setopt( $ch, CURLOPT_POSTFIELDS, $this->post_string );
-			} else { 
-				// Can't post XML like this, it will break. 
-				// So if you want to POST XML to a URL you'll have to just
-				// if you want to catch get vars that are acccidentally put
-				// in with a post call, uncomment the code below.  
-
-				/*
-				//If they didn't do it right, try and revocer anyway.
-				$fields 	= $this->extract_postvars( $url ); 
-				//$url1 	= substr( $url, 0, strpos( $url, '?'. 0 ) -1 );
-				$url1 = $url;
-				$url2		= substr( $url, strpos( $url, '?', 0 ) + 1 );
-
-				curl_setopt( $ch, CURLOPT_URL, $url );
-				curl_setopt( $ch, CURLOPT_POST, count( $fields ) );
-				curl_setopt( $ch, CURLOPT_POSTFIELDS, $url2 );
-
-				$this->post_string = 'Empty.';
-				$this->last_query = $url1;*/
-
+			} else {
+				//Trest it like a string.
 				curl_setopt( $ch, CURLOPT_POST, 1 ); 
 				curl_setopt( $ch, CURLOPT_POSTFIELDS, $data );
 			}
@@ -134,43 +131,43 @@ class simple_api {
 				$this->error = curl_error( $ch );	
 				throw new Exception( $this->error );
 			} else { 
+				$r_info = curl_getinfo( $ch );
+				$this->last_response = $this->response;
+				$this->response	= $response;
 
-				$r_info		= curl_getinfo( $ch );
-				$this->last_response 	= $this->response; 	
-				$this->response		= $response;
-					
 				if( $r_info['http_code'] == 200 ) {
-				switch( strtolower( $this->format ) ) {
-					case 'json':
-						if( !$decode ) { 
+					switch( $this->format ) {
+						case 'json':
+							$response = ( $decode ) ? json_decode( $response ) : $response; 
 							return( $response );
-						} else { 
-							return ( json_decode( $response ) ); 
-						}
-					break; 
+						break; 
 				
-					case 'xml': 
-						return( $response ); 
-					break;
+						case 'xml':
+							if( $decode ) { 
+								if( function_exists( 'simplexml_load_string' ) ) {
+									$response = @simplexml_load_string( $response );
+								} else {
+									return( $response );
+								}
+							}
+
+							return( $response );
+						break;
 				
-					default: 
-						return( $response );
-					break;
-				}
-					return( $r_info['http_code'] );
+						default: 
+							return( $response );
+						break;
+					}
 				} else {
 					$this->last_response = $this->response;
 					$this->response = "SimpleAPI/HTTP Error # $r_info[http_code] <br /> $response -- ".curl_error( $ch ); 
 				}
 			}
 		} catch( Exception $e ) {
-
+			throw new Exception( 'Could not execture cURL' );
 		}
-		curl_close( $ch );
-	}
 
-	public function debug_me( ) {
-		print_r( $this );
+		curl_close( $ch );
 	}
 
 	public function get_user( ) { return( $this->username ); }
@@ -183,6 +180,18 @@ class simple_api {
 	public function get_useragent( ) { return( $this->useragent ); }
 	public function last_query( ) { return( $this->last_query ); }
 	public function last_response( ) { return( $this->last_response ); }
+
+	public function set_timeout( $timeout ) {
+		if( is_int( $timeout ) ) { 
+			$this->timeout = (int)$timeout;
+		} else { 
+			return;
+		}
+	}
+
+	public function debug_me( ) {
+		print_r( $this );
+	}
 }
 
 ?>
