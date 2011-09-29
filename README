@@ -3,7 +3,7 @@
 ==================================================
 Who: Jason Snively pixelat3d@siliconfreaks.com | http://www.omgninja.com
 Created: ???
-Updated: 08.02.2011
+Updated: 09.29.2011
 License: Use however you want to, no license or anything. Hopefully 
 it will save someone a bit of time. 
 
@@ -15,6 +15,8 @@ twitter and last.fm when i just wanted something lightweight to throw
 up on my blog. I wrote the interface so I could just easily extend it
 and get the very limited information I cared about. I've included both
 of the extensions in the repository.
+
+9.29.11: Added Google+ Support.
 
 ======================================================
 | Usage: 
@@ -40,3 +42,7 @@ Your Most recent Last.fm Tracks:
 $lfm = new simple_lastfm( $username );
 $track_list = $lfm->recent_tracks( ); 
 print_r( $track_list );
+
+Google+ Posts: 
+$gp = new simple_googlePlus( ID ); 
+$posts = $gp->recent_posts( );
