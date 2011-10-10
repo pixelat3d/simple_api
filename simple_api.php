@@ -25,12 +25,16 @@ class simple_api {
 	protected $headers = Array( );
 	protected $data;
 	protected $error;
+	protected $retries;
+	protected $max_retries;
 
-	private	$version = 0.73;
+	private	$version = 0.74;
 
 	public function __construct( $username = '', $password = '' ) {
 		$this->username = $username;
 		$this->password = $password;
+		$this->max_retries = 3; 
+		$this->retries = 0;
 
 		$this->useragent = 'Simple API/'.$this->version;
 	}
@@ -128,8 +132,13 @@ class simple_api {
 		try {
 			$response = curl_exec( $ch );
 			if( $response === false ) {
-				$this->error = curl_error( $ch );	
-				throw new Exception( $this->error );
+				if( $this->retries < $this->max_retries ) { 
+					$this->retries++;
+					$this->request_data( $url, $format, $method, $data, $decode );
+				} else {
+					$this->error = curl_error( $ch );
+					throw new Exception( $this->error );
+				}
 			} else { 
 				$r_info = curl_getinfo( $ch );
 				$this->last_response = $this->response;
